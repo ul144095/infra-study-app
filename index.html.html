@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>営業向けインフラ基礎学習アプリ Ver2.1</title>
+    <style>
+        /* --- 基本スタイル --- */
+        :root {
+            --primary-color: #0056b3;
+            --accent-color: #e3f2fd;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+        * { box-sizing: border-box; } /* レイアウト崩れ防止 */
+        
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: var(--text-color);
+            background-color: #f5f7fa;
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* 画面いっぱいに使う */
+        }
+
+        /* --- ヘッダー --- */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0 20px;
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0; /* ヘッダーは縮めない */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        header h1 { margin: 0; font-size: 1.2rem; }
+        .progress-indicator { font-size: 0.9rem; background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px; }
+
+        /* --- メインレイアウト --- */
+        .container {
+            display: flex;
+            flex: 1; /* 残りの高さを全て使う */
+            overflow: hidden; /* 全体のスクロールを禁止（個別にスクロールさせる） */
+            position: relative;
+        }
+
+        /* サイドバー（メニュー） */
+        .sidebar {
+            width: 260px;
+            min-width: 260px; /* 【重要】幅を固定して潰れないようにする */
+            background-color: white;
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto; /* メニューが多い場合はスクロール */
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chapter-header {
+            padding: 15px;
+            background-color: #f8f9fa;
+            font-weight: bold;
+            font-size: 0.95rem;
+            border-bottom: 1px solid var(--border-color);
+            color: #555;
+            position: sticky;
+            top: 0;
+        }
+        .menu-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            transition: 0.2s;
+        }
+        .menu-item:hover { background-color: #f0f8ff; }
+        .menu-item.active { background-color: var(--accent-color); color: var(--primary-color); font-weight: bold; border-left: 4px solid var(--primary-color); }
+        .icon { margin-right: 8px; }
+
+        /* コンテンツエリア */
+        .main-content {
+            flex: 1; /* 残りの幅を全て使う */
+            padding: 30px;
+            overflow-y: auto; /* コンテンツのみスクロール */
+            background-color: #f5f7fa;
+        }
+        .content-card {
+            background: white;
+            max-width: 800px;
+            margin: 0 auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 40px;
+            min-height: 50vh;
+        }
+
+        /* コンテンツ内部 */
+        h2.page-title {
+            margin-top: 0;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 15px;
+            color: var(--primary-color);
+        }
+        .lecture-text { line-height: 1.8; font-size: 1.05rem; margin-bottom: 20px;}
+        .lecture-text strong { background: linear-gradient(transparent 70%, #ffeb3b 70%); }
+        
+        .concept-image {
+            background-color: #e9ecef;
+            border: 2px dashed #adb5bd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            color: #495057;
+        }
+        .concept-image span { font-size: 3rem; display: block; margin-bottom: 10px; }
+
+        /* タブ */
+        .tab-container { display: flex; margin-bottom: 20px; border-bottom: 1px solid #ddd; }
+        .tab { padding: 10px 20px; cursor: pointer; border-bottom: 3px solid transparent; font-weight: bold; color: #666; }
+        .tab.active { border-bottom-color: var(--primary-color); color: var(--primary-color); }
+        .section-content { display: none; }
+        .section-content.active { display: block; }
+
+        /* クイズ */
+        .quiz-option {
+            display: block; width: 100%; padding: 15px; margin-bottom: 10px;
+            border: 1px solid #ccc; border-radius: 6px; background: white;
+            cursor: pointer; text-align: left; font-size: 1rem;
+        }
+        .quiz-option:hover { background-color: #f8f9fa; }
+        
+        .feedback-box { padding: 15px; border-radius: 6px; margin-top: 20px; display: none; }
+        .feedback-correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .feedback-wrong { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .btn {
+            background-color: var(--primary-color); color: white; border: none;
+            padding: 12px 25px; border-radius: 4px; cursor: pointer; font-size: 1rem;
+            margin-top: 20px;
+        }
+        .btn:hover { opacity: 0.9; }
+
+        /* --- レスポンシブ対応（スマホ・タブレット） --- */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column; /* 縦並びにする */
+                overflow: auto; /* 全体スクロールを許可 */
+            }
+            .sidebar {
+                width: 100%; /* 幅いっぱい */
+                min-width: 0;
+                height: auto;
+                max-height: 200px; /* 高さを制限 */
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .main-content {
+                padding: 15px;
+                height: auto;
+                overflow: visible;
+            }
+            .content-card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🔰 インフラ基礎（営業向け）</h1>
+    <div class="progress-indicator">学習進捗: <span id="progress-text">0%</span></div>
+</header>
+
+<div class="container">
+    <div class="sidebar" id="sidebar">
+        <div style="padding:20px;">読み込み中...</div>
+    </div>
+
+    <div class="main-content">
+        <div id="content-area" class="content-card">
+            <div style="text-align: center; padding-top: 50px;">
+                <h2>読み込み中...</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* --- 学習コンテンツデータ --- */
+const courseData = [
+    {
+        title: "第1章：ネットワーク",
+        items: [
+            {
+                type: "intro",
+                id: "nw-intro",
+                title: "📖 【概論】ネットワークとは？",
+                content: `
+                    <h3>道路と住所の役割</h3>
+                    <p class="lecture-text">
+                        ITインフラにおける「ネットワーク」とは、私たちが普段使っている<strong>「道路網」や「郵便システム」</strong>と全く同じ役割を果たします。
+                    </p>
+                    <div class="concept-image">
+                        <span>🏢 ↔️ 🚚 ↔️ 🏠</span>
+                        <p>データ（荷物）を、正しい道順（経路）で、相手（住所）に届ける仕組み</p>
+                    </div>
+                    <p class="lecture-text">
+                        営業として顧客と話す際、ネットワークで重要なのは以下の3点だけです。
+                    </p>
+                    <ul class="lecture-text">
+                        <li><strong>繋ぐこと：</strong> 離れた場所にあるPCやサーバ同士で会話できるようにする。</li>
+                        <li><strong>分けること：</strong> 関係ない部署同士がデータを見られないように壁を作る（セキュリティ）。</li>
+                        <li><strong>整理すること：</strong> アクセスが集中した時に、適切に交通整理をする。</li>
+                    </ul>
+                `
+            },
+            {
+                type: "term",
+                id: "nw-l2l3",
+                title: "L2スイッチ / L3スイッチ",
+                desc: `
+                    <p>LANケーブルを束ねる集線装置（ハブ）です。</p>
+                    <ul>
+                        <li><strong>L2スイッチ：</strong> 「同じ部署内」でのみ通話ができる内線電話のようなもの。</li>
+                        <li><strong>L3スイッチ：</strong> 「異なるネットワーク間」を繋ぐ外線機能付きのもの。</li>
+                    </ul>
+                `,
+                analogy: "L2は「社内の会話」、L3は「対外的な会話」をするための翻訳機だと思ってください。",
+                quiz: {
+                    q: "複数の異なるネットワークを接続するために必要な機能を持つ機器は？",
+                    options: ["L2スイッチ", "L3スイッチ", "リピーターハブ", "LANケーブル"],
+                    ans: 1
+                }
+            },
+            {
+                type: "term",
+                id: "nw-vlan",
+                title: "VLAN (仮想LAN)",
+                desc: `
+                    <p>物理的な配線を変えずに、論理的（ソフト的）にネットワークをグループ分けする技術です。</p>
+                `,
+                analogy: "広いオフィスフロアに「透明な防音ガラス」で仕切りを作るイメージです。",
+                quiz: {
+                    q: "VLANを導入する主な目的は？",
+                    options: ["通信速度向上", "部署ごとのセキュリティ確保", "PC増設", "ネット接続"],
+                    ans: 1
+                }
+            }
+        ]
+    },
+    {
+        title: "第2章：サーバ・OS",
+        items: [
+            {
+                type: "intro",
+                id: "sv-intro",
+                title: "📖 【概論】サーバとは？",
+                content: `
+                    <h3>仕事をこなす「実務担当者」</h3>
+                    <p class="lecture-text">
+                        ネットワークが「道路」なら、サーバは実際に仕事をする<strong>「オフィスや作業員」</strong>です。
+                    </p>
+                    <div class="concept-image">
+                        <span>👨‍💻 🖥️ 🗄️</span>
+                        <p>リクエスト（命令）を受け取り、処理して、結果を返すコンピュータ</p>
+                    </div>
+                    <p class="lecture-text">
+                         Webの世界では、Windowsではなく<strong>Linux（リナックス）</strong>というOSが標準語として使われています。
+                    </p>
+                `
+            },
+            {
+                type: "term",
+                id: "sv-linux",
+                title: "Linux (リナックス)",
+                desc: `
+                    <p>サーバ用途で世界的に最も使われているOS（基本ソフト）。CUI（文字）で操作することが多い。</p>
+                `,
+                analogy: "スマホで言う「Android」の親戚です。カスタマイズが自由で無料（オープンソース）のものが多いです。",
+                quiz: {
+                    q: "企業のWebサーバとして、Windows以外で最も普及しているOSは？",
+                    options: ["macOS", "Linux", "Android", "iOS"],
+                    ans: 1
+                }
+            }
+        ]
+    },
+    {
+        title: "第3章：クラウド",
+        items: [
+            {
+                type: "intro",
+                id: "cl-intro",
+                title: "📖 【概論】クラウドとは？",
+                content: `
+                    <h3>「所有」から「利用」へ</h3>
+                    <p class="lecture-text">
+                        Amazon(AWS)やMicrosoft(Azure)などの巨大なデータセンターの一部を<strong>「ネット経由で借りる」</strong>仕組みです。
+                    </p>
+                    <div class="concept-image">
+                        <span>☁️ ↔️ 💻</span>
+                        <p>必要な時に、必要な分だけ借りて、使った分だけ払う</p>
+                    </div>
+                `
+            },
+            {
+                type: "term",
+                id: "cl-cloud",
+                title: "IaaS / PaaS / SaaS",
+                desc: `
+                    <p>クラウドサービスの提供形態の分類です。</p>
+                    <ul>
+                        <li><strong>IaaS:</strong> 土地と建物だけ借りる（AWS EC2など）。</li>
+                        <li><strong>PaaS:</strong> 開発環境も借りる。</li>
+                        <li><strong>SaaS:</strong> ソフトだけ使う（Gmailなど）。</li>
+                    </ul>
+                `,
+                analogy: "IaaSは「資材置き場」、PaaSは「家具付きマンション」、SaaSは「ホテル」です。",
+                quiz: {
+                    q: "仮想サーバ（OS込み）だけを借りて、その上で自由にアプリを構築する形態は？",
+                    options: ["SaaS", "PaaS", "IaaS", "オンプレミス"],
+                    ans: 2
+                }
+            }
+        ]
+    }
+];
+
+/* --- アプリロジック --- */
+let currentChapterIdx = 0;
+let currentItemIdx = 0;
+let learnedItems = [];
+
+// ローカルストレージのエラー対策
+try {
+    const saved = localStorage.getItem('infraAppV21_learned');
+    if (saved) learnedItems = JSON.parse(saved);
+} catch (e) {
+    console.log("Local storage not available");
+}
+
+function init() {
+    renderSidebar();
+    loadContent(0, 0);
+}
+
+function renderSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if(!sidebar) return; // 安全策
+    
+    sidebar.innerHTML = '';
+    
+    let totalItems = 0;
+    let doneItems = 0;
+
+    courseData.forEach((chapter, cIdx) => {
+        const h = document.createElement('div');
+        h.className = 'chapter-header';
+        h.textContent = chapter.title;
+        sidebar.appendChild(h);
+
+        chapter.items.forEach((item, iIdx) => {
+            totalItems++;
+            const isDone = learnedItems.includes(item.id);
+            if (isDone) doneItems++;
+
+            const div = document.createElement('div');
+            div.className = `menu-item ${item.type} ${cIdx === currentChapterIdx && iIdx === currentItemIdx ? 'active' : ''}`;
+            div.onclick = () => loadContent(cIdx, iIdx);
+            
+            let icon = item.type === 'intro' ? '📖' : '📝';
+            if (isDone) icon = '✅';
+            
+            div.innerHTML = `<span class="icon">${icon}</span> ${item.title.replace('📖 ', '')}`;
+            sidebar.appendChild(div);
+        });
+    });
+
+    const percent = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
+    document.getElementById('progress-text').textContent = `${percent}%`;
+}
+
+function loadContent(cIdx, iIdx) {
+    currentChapterIdx = cIdx;
+    currentItemIdx = iIdx;
+    renderSidebar();
+
+    const item = courseData[cIdx].items[iIdx];
+    const container = document.getElementById('content-area');
+    
+    let html = `<h2 class="page-title">${item.title}</h2>`;
+
+    if (item.type === 'intro') {
+        html += item.content;
+        html += `
+            <div style="text-align:right; margin-top:30px;">
+                <button class="btn" onclick="markAsRead('${item.id}'); nextItem()">
+                    次のステップへ進む 👉
+                </button>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="tab-container">
+                <div class="tab active" onclick="switchTab('explain')">STEP1: 解説</div>
+                <div class="tab" onclick="switchTab('quiz')">STEP2: クイズ</div>
+            </div>
+
+            <div id="tab-explain" class="section-content active">
+                <div class="lecture-text">${item.desc}</div>
+                <div class="concept-image" style="background:#fff3cd; border-color:#ffeeba; color:#856404;">
+                    <strong>💡 営業トークイメージ</strong><br>
+                    ${item.analogy}
+                </div>
+                <div style="text-align:right;">
+                    <button class="btn" onclick="switchTab('quiz')">理解できたのでクイズへ 👉</button>
+                </div>
+            </div>
+
+            <div id="tab-quiz" class="section-content">
+                <p class="lecture-text" style="font-weight:bold;">Q. ${item.quiz.q}</p>
+                <div id="quiz-options-area">
+                    ${item.quiz.options.map((opt, idx) => `
+                        <button class="quiz-option" onclick="checkAnswer(${idx}, ${item.quiz.ans}, '${item.id}')">
+                            ${idx + 1}. ${opt}
+                        </button>
+                    `).join('')}
+                </div>
+                <div id="feedback" class="feedback-box"></div>
+                <div style="text-align:right; display:none;" id="next-nav-btn">
+                     <button class="btn" onclick="nextItem()">次の項目へ 👉</button>
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+    // スマホでメニューから選んだ時、コンテンツが見えるようにスクロール
+    if(window.innerWidth <= 768) {
+        document.querySelector('.container').scrollTop = 200; 
+    } else {
+        document.querySelector('.main-content').scrollTop = 0;
+    }
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.section-content').forEach(el => el.classList.remove('active'));
+    
+    const tabIndex = tabName === 'explain' ? 0 : 1;
+    document.querySelectorAll('.tab')[tabIndex].classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+}
+
+function checkAnswer(selected, correct, itemId) {
+    const feedback = document.getElementById('feedback');
+    const options = document.querySelectorAll('.quiz-option');
+    const nextBtn = document.getElementById('next-nav-btn');
+
+    options.forEach(opt => opt.disabled = true);
+
+    if (selected === correct) {
+        feedback.className = 'feedback-box feedback-correct';
+        feedback.innerHTML = '<strong>正解！🎉</strong><br>その通りです。';
+        markAsRead(itemId);
+        nextBtn.style.display = 'inline-block';
+    } else {
+        feedback.className = 'feedback-box feedback-wrong';
+        feedback.innerHTML = '<strong>不正解...💦</strong><br>もう一度「解説タブ」を読んでみましょう。';
+        document.querySelector('.tab-container .tab').click(); 
+        options.forEach(opt => opt.disabled = false);
+    }
+    feedback.style.display = 'block';
+}
+
+function markAsRead(id) {
+    if (!learnedItems.includes(id)) {
+        learnedItems.push(id);
+        try {
+            localStorage.setItem('infraAppV21_learned', JSON.stringify(learnedItems));
+        } catch(e) {}
+        renderSidebar();
+    }
+}
+
+function nextItem() {
+    let c = currentChapterIdx;
+    let i = currentItemIdx + 1;
+    if (i >= courseData[c].items.length) {
+        c++;
+        i = 0;
+    }
+    if (c >= courseData.length) {
+        alert('全ての学習が完了しました！');
+        return;
+    }
+    loadContent(c, i);
+}
+
+// 起動
+init();
+</script>
+</body>
+</html>
